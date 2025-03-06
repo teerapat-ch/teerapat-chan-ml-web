@@ -2,7 +2,7 @@ import streamlit as st
 import numpy as np
 import tensorflow as tf
 
-model = tf.keras.models.load_model("models/deep_ff_model.keras")
+model = tf.saved_model.load("models/deep_ff_model.keras")
 
 st.header("Deep Feed Forward Model", divider="grey")
 st.header("Heart Disease Prediction")
