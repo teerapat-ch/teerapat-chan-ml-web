@@ -1,12 +1,8 @@
 import streamlit as st
 import numpy as np
-import tensorflow as tf
+from tensorflow.keras.models import load_model 
 
-@st.cache_resource
-def load_model():
-    return tf.keras.models.load_model("models/deep_ff_model.keras")
-
-model = load_model()
+model = load_model("models/deep_ff_model.keras")
 
 st.header("Deep Feed Forward Model", divider="grey")
 st.header("Heart Disease Prediction")
