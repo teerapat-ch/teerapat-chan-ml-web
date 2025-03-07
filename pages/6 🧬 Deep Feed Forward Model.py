@@ -26,7 +26,6 @@ model.eval()
 
 st.header("Deep Feed Forward Model", divider="grey")
 st.header("Heart Disease Prediction")
-st.write("(อย่าเปลี่ยนค่าเร็วไปนะครับ 🙏)")
 
 ################### INPUT SECTION ###################
 
