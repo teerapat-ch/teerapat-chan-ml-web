@@ -1,8 +1,28 @@
 import streamlit as st
 import numpy as np
-from tensorflow.keras.models import load_model
+import torch
+import torch.nn as nn
 
-model = load_model("models/deep_ff_model.keras")
+class DeepFFNN(nn.Module):
+    def __init__(self):
+        super(DeepFFNN, self).__init__()
+        self.fc1 = nn.Linear(13, 32)
+        self.fc2 = nn.Linear(32, 64)
+        self.batch_norm = nn.BatchNorm1d(64)
+        self.fc3 = nn.Linear(64, 1)
+        self.relu = nn.ReLU()
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        x = self.relu(self.fc1(x))
+        x = self.relu(self.fc2(x))
+        x = self.batch_norm(x)
+        x = self.sigmoid(self.fc3(x))
+        return x
+
+model = DeepFFNN()
+model.load_state_dict(torch.load("models/deep_ff_model.pth"))
+model.eval()
 
 st.header("Deep Feed Forward Model", divider="grey")
 st.header("Heart Disease Prediction")
@@ -31,11 +51,14 @@ exercise = 1 if st.checkbox("Exercise Angina") else 0
 submit_button = st.button("Submit")
 
 if submit_button:
-    input_data = np.array([[age, mapped_gender, chest_pain, bp, cholesterol, fbs, ekg, hr, exercise, st_de, slope_st, vessel, thallium]], dtype=float)
-    prediction = model.predict(input_data)
+    input_data = np.array([[age, mapped_gender, chest_pain, bp, cholesterol, fbs, ekg, hr, exercise, st_de, slope_st, vessel, thallium]], dtype=np.float32)
+    input_tensor = torch.tensor(input_data)
+
+    with torch.no_grad():
+        prediction = model(input_tensor)
 
     st.subheader("Prediction Result")
-    probability = prediction[0][0]
+    probability = prediction.item()
     st.write(f"Prediction Probability: {probability:.2f}")
     if probability > 0.5:
         st.success("The model predicts **Heart Disease**")

@@ -51,44 +51,103 @@ x_train, x_test, y_train, y_test = train_test_split(x, y, test_size = 0.30, rand
 
 st.write("สร้างโมเดล Deep Feed Forward")
 st.code('''
-from keras import layers, regularizers
+import torch
+import torch.nn as nn
 
-model = keras.Sequential([
-    keras.layers.Dense(32, activation="relu", input_shape=(13,)),
-    keras.layers.Dense(64, activation="relu"),
-    keras.layers.BatchNormalization(),
-    keras.layers.Dense(1, activation="sigmoid")
-])
+class FeedForwardNN(nn.Module):
+    def __init__(self):
+        super(FeedForwardNN, self).__init__()
+        self.fc1 = nn.Linear(13, 32)
+        self.fc2 = nn.Linear(32, 64)
+        self.batch_norm = nn.BatchNorm1d(64)
+        self.fc3 = nn.Linear(64, 1)
+        self.relu = nn.ReLU()
+        self.sigmoid = nn.Sigmoid()
 
-model.summary()
+    def forward(self, x):
+        x = self.relu(self.fc1(x))
+        x = self.relu(self.fc2(x))
+        x = self.batch_norm(x)
+        x = self.sigmoid(self.fc3(x))
+        return x
+
+model = FeedForwardNN()
+
+print(model)
 ''')
 
-st.write("ตั้งค่าให้ output เป็น binary(0-1)")
+st.write("ตั้งค่าให้ optimizer")
 st.code('''
-model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+criterion = nn.BCELoss()
+optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 ''')
 
-st.write("fit ข้อมูลที่จะ train เข้าไปยัง model")
+st.write("แปลงข้อมูลที่จะ train เข้าไปยัง model")
 st.code('''
-history_model = model.fit(x, y, epochs=20, validation_split=0.2, batch_size=16)
+from torch.utils.data import DataLoader, TensorDataset
+
+x_tensor = torch.tensor(x.values, dtype=torch.float32)
+y_tensor = torch.tensor(y.values, dtype=torch.float32).unsqueeze(1)
+
+dataset = TensorDataset(x_tensor, y_tensor)
+train_loader = DataLoader(dataset, batch_size=16, shuffle=True)
+''')
+
+st.write("train ข้อมูลตามจำนวน epochs")
+st.code('''
+for epoch in range(20):
+    for batch_x, batch_y in train_loader:
+        optimizer.zero_grad()
+        outputs = model(batch_x)
+        loss = criterion(outputs, batch_y)
+        loss.backward()
+        optimizer.step()
 ''')
 
 st.write("ทดสอบความแม่นยำของโมเดล")
 st.code('''
-model.evaluate(x_test, y_test)
+model.eval()
+with torch.no_grad():
+    x_test_tensor = torch.tensor(x_test.values, dtype=torch.float32)
+    y_test_tensor = torch.tensor(y_test.values, dtype=torch.float32).unsqueeze(1)
+
+    y_pred = model(x_test_tensor)
+    y_pred = (y_pred > 0.5).float()
+
+    accuracy = (y_pred == y_test_tensor).float().mean()
+
+print(f'Test Accuracy: {accuracy.item():.4f}')
 ''')
 
-st.write("Import โมเดล")
+st.write("Export โมเดล")
 st.code('''
-model.save('deep_ff_model.keras')
+torch.save(model.state_dict(), 'deep_ff_model.pth')
 ''')
 
 st.subheader("2. Deploy model")
 
 st.write("Import ตัวโมเดลเข้ามายัง streamlit")
 st.code('''
-import tensorflow as tf
-model = tf.keras.models.load_model("models/deep_ff_model.keras")
+class DeepFFNN(nn.Module):
+    def __init__(self):
+        super(DeepFFNN, self).__init__()
+        self.fc1 = nn.Linear(13, 32)
+        self.fc2 = nn.Linear(32, 64)
+        self.batch_norm = nn.BatchNorm1d(64)
+        self.fc3 = nn.Linear(64, 1)
+        self.relu = nn.ReLU()
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        x = self.relu(self.fc1(x))
+        x = self.relu(self.fc2(x))
+        x = self.batch_norm(x)
+        x = self.sigmoid(self.fc3(x))
+        return x
+
+model = DeepFFNN()
+model.load_state_dict(torch.load("models/deep_ff_model.pth"))
+model.eval()
 ''')
 
 st.write("รับ input จากผู้ใช้")
@@ -112,11 +171,15 @@ exercise = 1 if st.checkbox("Exercise Angina") else 0
 
 st.write("ทำการ predict")
 st.code('''
-input_data = np.array([[age, mapped_gender, chest_pain, bp, cholesterol, fbs, ekg, hr, exercise, st_de, slope_st, vessel, thallium]], dtype=float)
-    prediction = model.predict(input_data)
+if submit_button:
+    input_data = np.array([[age, mapped_gender, chest_pain, bp, cholesterol, fbs, ekg, hr, exercise, st_de, slope_st, vessel, thallium]], dtype=np.float32)
+    input_tensor = torch.tensor(input_data)
+
+    with torch.no_grad():
+        prediction = model(input_tensor)
 
     st.subheader("Prediction Result")
-    probability = prediction[0][0]
+    probability = prediction.item()
     st.write(f"Prediction Probability: {probability:.2f}")
     if probability > 0.5:
         st.success("The model predicts **Heart Disease**")

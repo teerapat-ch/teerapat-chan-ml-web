@@ -4,4 +4,4 @@ numpy
 pandas
 joblib
 matplotlib
-tensorflow
+torch
